@@ -129,7 +129,7 @@ function Hero() {
         </div>
 
         <p className="mt-6 text-[#6e6e73] text-[14px]">
-          Keine Einrichtungsgebühr · Kündigung jederzeit · Sofort-Setup
+          Ab 149 €/Monat · Keine Einrichtungsgebühr · Kündigung jederzeit
         </p>
 
         {/* Mock UI preview */}
@@ -206,8 +206,8 @@ const features = [
   },
   {
     icon: "💳",
-    title: "Stripe Connect",
-    desc: "Du setzt deine Preise. Deine Kunden zahlen direkt. Dein Anteil kommt automatisch auf dein Konto.",
+    title: "Automatischer 3-Wege-Split",
+    desc: "Du setzt deine Seat-Preise. Stripe verteilt automatisch: Plattform-Anteil, Partner-Provision und dein Gewinn — ohne manuelle Abrechnung.",
   },
   {
     icon: "🎨",
@@ -381,44 +381,44 @@ function Pricing() {
         <AnimatedSection className="text-center mb-16">
           <p className="section-label">Preise</p>
           <h2 className="section-title mb-4">
-            Ein Plan.
+            Transparent.
             <br />
-            Alles dabei.
+            Skalierend.
           </h2>
           <p className="section-subtitle mx-auto">
-            Keine versteckten Kosten. Keine Feature-Gates. Du bekommst das
-            vollständige System.
+            Niedrige Fixkosten. Du verdienst mit jedem Kunden mehr — nicht weniger.
           </p>
         </AnimatedSection>
 
         <AnimatedSection>
-          <div className="max-w-lg mx-auto">
-            <div className="relative bg-white rounded-3xl overflow-hidden shadow-[0_20px_80px_rgba(0,0,0,0.12)] border border-[#d2d2d7]/40">
-              {/* Top accent */}
-              <div className="h-1 bg-gradient-to-r from-[#0071e3] to-[#34aadc]" />
+          <div className="max-w-2xl mx-auto space-y-6">
 
+            {/* Main pricing card */}
+            <div className="relative bg-white rounded-3xl overflow-hidden shadow-[0_20px_80px_rgba(0,0,0,0.12)] border border-[#d2d2d7]/40">
+              <div className="h-1 bg-gradient-to-r from-[#0071e3] to-[#34aadc]" />
               <div className="p-10">
                 <div className="flex items-start justify-between mb-8">
                   <div>
-                    <h3 className="text-[#1d1d1f] text-[24px] font-semibold mb-1">
-                      Whitelabel Lizenz
-                    </h3>
-                    <p className="text-[#6e6e73] text-[15px]">AgentHub-OS · Full Stack</p>
+                    <h3 className="text-[#1d1d1f] text-[24px] font-semibold mb-1">Server-Lizenz</h3>
+                    <p className="text-[#6e6e73] text-[15px]">AgentHub-OS · Full Stack · Whitelabel</p>
                   </div>
                   <div className="bg-[#0071e3]/10 text-[#0071e3] text-[13px] font-medium px-3 py-1 rounded-full">
-                    Beliebt
+                    Monatlich kündbar
                   </div>
                 </div>
 
                 <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-[56px] font-bold text-[#1d1d1f] leading-none">297</span>
+                  <span className="text-[56px] font-bold text-[#1d1d1f] leading-none">149</span>
                   <div>
                     <span className="text-[#1d1d1f] text-[24px] font-medium">€</span>
                     <span className="text-[#6e6e73] text-[15px] block">/Monat</span>
                   </div>
                 </div>
-                <p className="text-[#6e6e73] text-[14px] mb-8">
-                  Jährlich: <strong className="text-[#1d1d1f]">2.970 € / Jahr</strong> — 2 Monate gratis
+                <p className="text-[#6e6e73] text-[14px] mb-2">
+                  Jährlich: <strong className="text-[#1d1d1f]">1.490 € / Jahr</strong> — 2 Monate gratis
+                </p>
+                <p className="text-[#6e6e73] text-[13px] mb-8">
+                  + 25 € Plattform-Fee pro aktivem Endkunden-Seat/Monat (automatisch via Stripe)
                 </p>
 
                 <div className="space-y-4 mb-10">
@@ -426,7 +426,7 @@ function Pricing() {
                     "Vollständiger White-Label Stack",
                     "Unlimitierte Endkunden-Accounts",
                     "Dify.ai + n8n + Browser-Automatisierung",
-                    "Stripe Connect Integration",
+                    "Automatischer 3-Wege Stripe-Split",
                     "Siri-Schnittstelle & PWA",
                     "Automatischer Kill-Switch Watchdog",
                     "AES-256 BYOK Verschlüsselung",
@@ -468,7 +468,29 @@ function Pricing() {
               </div>
             </div>
 
-            <p className="text-center text-[#6e6e73] text-[14px] mt-6">
+            {/* Revenue calculator */}
+            <div className="bg-[#1d1d1f] rounded-3xl p-8 text-white">
+              <p className="text-[#6e6e73] text-[13px] font-semibold uppercase tracking-wider mb-4">Beispielrechnung bei 50 Endkunden</p>
+              <div className="space-y-3">
+                {[
+                  { label: "Dein Seat-Preis (selbst festgelegt)", value: "100 €/Monat", color: "text-white" },
+                  { label: "Plattform-Anteil (25 €/Seat × 50)", value: "− 1.250 €", color: "text-[#ff6b6b]" },
+                  { label: "Server-Lizenz", value: "− 149 €", color: "text-[#ff6b6b]" },
+                  { label: "Dein Gewinn", value: "3.601 €/Monat", color: "text-green-400" },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between">
+                    <span className="text-[#6e6e73] text-[14px]">{row.label}</span>
+                    <span className={`text-[15px] font-semibold ${row.color}`}>{row.value}</span>
+                  </div>
+                ))}
+                <div className="border-t border-white/10 pt-3 flex items-center justify-between">
+                  <span className="text-white text-[15px] font-semibold">ROI</span>
+                  <span className="text-green-400 text-[15px] font-bold">× 24 auf Fixkosten</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-center text-[#6e6e73] text-[14px]">
               Fragen?{" "}
               <a href="mailto:alex@agenthub.de" className="text-[#0071e3] hover:underline">
                 Schreib uns
@@ -497,8 +519,8 @@ const faqs = [
     a: "Der integrierte Watchdog-Container prüft täglich die Lizenz. Bei ausbleibender Zahlung pausiert er den gesamten Docker-Stack automatisch. Deine Daten bleiben erhalten — nach Zahlung läuft alles sofort wieder.",
   },
   {
-    q: "Kann ich eigene Preise für meine Kunden setzen?",
-    a: "Ja, vollständig. Über Stripe Connect legst du deine eigenen Abo-Preise für Endkunden fest. Du kassierst direkt, und dein Anteil für die Lizenz wird automatisch abgeführt.",
+    q: "Wie funktioniert die Abrechnung mit meinen Endkunden?",
+    a: "Du legst deinen eigenen Seat-Preis frei fest (Minimum 25 €). Deine Endkunden zahlen direkt auf dein Stripe-Konto. Von jeder Transaktion werden automatisch 25 € Plattform-Fee abgeführt — der Rest ist dein Gewinn. Bei 100 € Seat-Preis und 50 Kunden bleiben dir ~3.600 € Gewinn pro Monat.",
   },
   {
     q: "Sehen meine Kunden, dass es AgentHub ist?",
