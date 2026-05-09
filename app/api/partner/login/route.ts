@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 
+export const runtime = "nodejs";
+
 function httpsPost(url: string, body: string): Promise<{ status: number; data: unknown }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
