@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import PartnerRegisterForm from "./components/PartnerRegisterForm";
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ function Nav() {
             ["So funktioniert es", "#how"],
             ["Preise", "#preise"],
             ["FAQ", "#faq"],
+            ["Partner werden", "#partner"],
           ].map(([label, href]) => (
             <a
               key={label}
@@ -77,6 +79,7 @@ function Nav() {
             ["So funktioniert es", "#how"],
             ["Preise", "#preise"],
             ["FAQ", "#faq"],
+            ["Partner werden", "#partner"],
           ].map(([label, href]) => (
             <a key={label} href={href} onClick={() => setMenuOpen(false)} className="text-[#1d1d1f] text-[16px]">
               {label}
@@ -666,6 +669,7 @@ export default function LandingPage() {
       <HowItWorks />
       <StatsBanner />
       <Pricing />
+      <PartnerRegisterForm />
       <FAQ />
       <CTABanner />
       <Footer />
