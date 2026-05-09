@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
 const PARTNER_PORTAL_URL = process.env.NEXT_PUBLIC_PARTNER_PORTAL_URL ?? "https://138.2.173.221";
 
 export default function PortalLogin() {
@@ -21,7 +20,7 @@ export default function PortalLogin() {
     setError("");
 
     try {
-      const res = await fetch("/api/partner/login", {
+      const res = await fetch("/api/auth/unified", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -33,9 +32,11 @@ export default function PortalLogin() {
         return;
       }
 
-      // Admin erkennen anhand der E-Mail → Admin-Dashboard
-      if (ADMIN_EMAIL && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        localStorage.setItem("admin_token", data.token);
+      if (data.isAdmin && data.adminToken) {
+        // Admin: echtes admin JWT für das Lizenz-Dashboard speichern
+        localStorage.setItem("admin_token", data.adminToken);
+        // Partner-Token zusätzlich speichern für Partner-Portal-Zugriff
+        localStorage.setItem("partner_token", data.token);
         router.push("/portal/admin");
       } else {
         // Partner → Partner-Portal mit Token in URL
