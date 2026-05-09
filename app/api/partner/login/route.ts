@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
 
     const d = data as Record<string, unknown>;
     return NextResponse.json({ token: d.token, partner: d.partner });
-  } catch {
-    return NextResponse.json({ error: "Verbindung zum Partner-Server fehlgeschlagen." }, { status: 502 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "Verbindung zum Partner-Server fehlgeschlagen.", detail: msg }, { status: 502 });
   }
 }
