@@ -39,15 +39,6 @@ export default function LizenzenPage() {
   const [error, setError] = useState("");
   const [isOwner, setIsOwner] = useState(false);
 
-  const [showForm, setShowForm] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formInfo, setFormInfo] = useState("");
-  const [formHosting, setFormHosting] = useState("partner_hosted");
-  const [formDomain, setFormDomain] = useState("");
-  const [formKey, setFormKey] = useState("");
-  const [formSaving, setFormSaving] = useState(false);
-  const [formError, setFormError] = useState("");
-
   useEffect(() => {
     setIsOwner(getIsOwner());
     load();
@@ -65,32 +56,8 @@ export default function LizenzenPage() {
     }
   }
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!formName.trim()) { setFormError("Name ist erforderlich."); return; }
-    setFormSaving(true);
-    setFormError("");
-    try {
-      const created = await partnerApi.createCustomer({
-        name: formName.trim(),
-        info: formInfo.trim() || undefined,
-        hostingType: formHosting,
-        domain: formDomain.trim() || undefined,
-        serverLicenseKey: formKey.trim() || undefined,
-      });
-      if (created.error) { setFormError(created.error); return; }
-      setCustomers((prev) => [{ ...created, monthlyRevenue: 0, partnerProfit: 0 }, ...prev]);
-      setShowForm(false);
-      setFormName(""); setFormInfo(""); setFormHosting("partner_hosted"); setFormDomain(""); setFormKey("");
-    } catch {
-      setFormError("Verbindungsfehler.");
-    } finally {
-      setFormSaving(false);
-    }
-  }
-
-  const totalProfit = customers.reduce((s, c) => s + c.partnerProfit, 0);
-  const totalSeats = customers.reduce((s, c) => s + c.activeSeatCount, 0);
+  const totalProfit = customers.reduce((s, c) => s + (c.partnerProfit ?? 0), 0);
+  const totalSeats = customers.reduce((s, c) => s + (c.activeSeatCount ?? 0), 0);
 
   if (loading) {
     return (
@@ -112,15 +79,15 @@ export default function LizenzenPage() {
           <p className="text-[#6e6e73] text-[15px]">Verwalte deine Server-Kunden und deren Lizenzen.</p>
         </div>
         {isOwner && (
-          <button
-            onClick={() => { setShowForm(true); setFormError(""); }}
+          <Link
+            href="/partner-portal/kunden/neu"
             className="flex items-center gap-2 px-5 py-2.5 bg-[#1a3a5c] text-white text-[14px] font-medium rounded-xl hover:bg-[#1a3a5c]/90 transition-colors self-start sm:self-auto"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Neuer Kunde
-          </button>
+          </Link>
         )}
       </div>
 
@@ -143,70 +110,6 @@ export default function LizenzenPage() {
         </div>
       )}
 
-      {/* Create form modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[#1d1d1f] text-[17px] font-semibold">Neuer Server-Kunde</h2>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6e6e73] hover:bg-[#f5f5f7] transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-[#1d1d1f] text-[13px] font-medium mb-1.5">Name *</label>
-                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Muster GmbH"
-                  className="w-full px-4 py-2.5 text-[14px] bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl outline-none focus:border-[#1a3a5c] focus:ring-2 focus:ring-[#1a3a5c]/20 transition-all" />
-              </div>
-              <div>
-                <label className="block text-[#1d1d1f] text-[13px] font-medium mb-1.5">Info / Notiz</label>
-                <textarea value={formInfo} onChange={(e) => setFormInfo(e.target.value)} placeholder="Optionale Anmerkung..." rows={2}
-                  className="w-full px-4 py-2.5 text-[14px] bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl outline-none focus:border-[#1a3a5c] focus:ring-2 focus:ring-[#1a3a5c]/20 transition-all resize-none" />
-              </div>
-              <div>
-                <label className="block text-[#1d1d1f] text-[13px] font-medium mb-1.5">Hosting</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: "partner_hosted", label: "Partner-Hosted", desc: "Du hostest den Server" },
-                    { value: "self_hosted", label: "Self-Hosted", desc: "Kunde hostet selbst" },
-                  ].map((opt) => (
-                    <button type="button" key={opt.value} onClick={() => setFormHosting(opt.value)}
-                      className={`p-3 rounded-xl border text-left transition-all ${formHosting === opt.value ? "border-[#1a3a5c] bg-[#1a3a5c]/5" : "border-[#d2d2d7] bg-[#f5f5f7] hover:border-[#1a3a5c]/40"}`}>
-                      <div className="text-[13px] font-medium text-[#1d1d1f]">{opt.label}</div>
-                      <div className="text-[11px] text-[#6e6e73]">{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[#1d1d1f] text-[13px] font-medium mb-1.5">Domain (optional)</label>
-                  <input type="text" value={formDomain} onChange={(e) => setFormDomain(e.target.value)} placeholder="kunde.example.com"
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl outline-none focus:border-[#1a3a5c] focus:ring-2 focus:ring-[#1a3a5c]/20 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-[#1d1d1f] text-[13px] font-medium mb-1.5">Lizenz-Key (optional)</label>
-                  <input type="text" value={formKey} onChange={(e) => setFormKey(e.target.value)} placeholder="WL-XXXX-XXXX-..."
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl outline-none focus:border-[#1a3a5c] focus:ring-2 focus:ring-[#1a3a5c]/20 transition-all font-mono" />
-                </div>
-              </div>
-              {formError && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-600 text-[13px]">{formError}</div>}
-              <div className="flex gap-3 pt-1">
-                <button type="submit" disabled={formSaving}
-                  className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1a3a5c] text-white text-[14px] font-medium rounded-xl hover:bg-[#1a3a5c]/90 transition-colors disabled:opacity-50">
-                  {formSaving && <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
-                  Erstellen
-                </button>
-                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-[#1d1d1f] text-[14px] font-medium rounded-xl border border-[#d2d2d7] hover:bg-[#f5f5f7] transition-colors">
-                  Abbrechen
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Customer list */}
       {customers.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
@@ -218,9 +121,9 @@ export default function LizenzenPage() {
           <h3 className="text-[#1d1d1f] text-[17px] font-semibold mb-2">Noch keine Kunden</h3>
           <p className="text-[#6e6e73] text-[14px] mb-6">Erstelle deinen ersten Server-Kunden um Lizenzen zu verwalten.</p>
           {isOwner && (
-            <button onClick={() => setShowForm(true)} className="px-6 py-2.5 bg-[#1a3a5c] text-white text-[14px] font-medium rounded-xl hover:bg-[#1a3a5c]/90 transition-colors">
+            <Link href="/partner-portal/kunden/neu" className="px-6 py-2.5 bg-[#1a3a5c] text-white text-[14px] font-medium rounded-xl hover:bg-[#1a3a5c]/90 transition-colors inline-block">
               Ersten Kunden anlegen
-            </button>
+            </Link>
           )}
         </div>
       ) : (

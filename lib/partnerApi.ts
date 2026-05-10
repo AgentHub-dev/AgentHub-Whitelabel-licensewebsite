@@ -84,15 +84,41 @@ export const partnerApi = {
     return res.json();
   },
 
+  async getHetznerStatus() {
+    const res = await fetch(`${BASE}/partner/hetzner/status`, { headers: authHeaders() });
+    return res.json();
+  },
+  async connectHetzner(apiKey: string) {
+    const res = await fetch(`${BASE}/partner/hetzner/connect`, {
+      method: "POST", headers: authHeaders(), body: JSON.stringify({ apiKey }),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Fehler"); }
+    return res.json();
+  },
+  async disconnectHetzner() {
+    const res = await fetch(`${BASE}/partner/hetzner/disconnect`, {
+      method: "DELETE", headers: authHeaders(),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Fehler"); }
+    return res.json();
+  },
   async listCustomers() {
     const res = await fetch(`${BASE}/partner/customers`, { headers: authHeaders() });
     return res.json();
   },
-  async createCustomer(data: { name: string; info?: string; hostingType?: string; domain?: string; serverLicenseKey?: string }) {
+  async createCustomer(data: {
+    name: string; email: string; info?: string;
+    deploymentType?: string; serverOwner?: string;
+    serverType?: string; serverLocation?: string; ollamaMode?: string;
+  }) {
     const res = await fetch(`${BASE}/partner/customers`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(data),
+      method: "POST", headers: authHeaders(), body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+  async resendHetznerOnboarding(customerId: string) {
+    const res = await fetch(`${BASE}/partner/customers/${customerId}/resend-onboarding`, {
+      method: "POST", headers: authHeaders(),
     });
     return res.json();
   },
