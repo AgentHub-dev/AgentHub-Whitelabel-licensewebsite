@@ -2,9 +2,6 @@
 
 import { useState } from "react";
 
-const PARTNER_PORTAL_URL =
-  process.env.NEXT_PUBLIC_PARTNER_PORTAL_URL ?? "https://138.2.173.221";
-
 const benefits = [
   "Eigene Kundenstruktur verwalten",
   "Automatischer Revenue-Split via Stripe",
@@ -54,7 +51,7 @@ export default function PartnerRegisterForm() {
 
       setSuccess(true);
       setTimeout(() => {
-        window.location.href = `${PARTNER_PORTAL_URL}/partner-portal/dashboard?token=${data.token}`;
+        window.location.href = `/partner-portal/dashboard?token=${encodeURIComponent(data.token)}`;
       }, 2000);
     } catch {
       setError("Verbindungsfehler. Bitte versuche es erneut.");

@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const PARTNER_PORTAL_URL = process.env.NEXT_PUBLIC_PARTNER_PORTAL_URL ?? "https://138.2.173.221";
-
 export default function PortalLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -40,7 +38,7 @@ export default function PortalLogin() {
         router.push("/portal/admin");
       } else {
         // Partner → Partner-Portal mit Token in URL
-        window.location.href = `${PARTNER_PORTAL_URL}/partner-portal/dashboard?token=${encodeURIComponent(data.token)}`;
+        window.location.href = `/partner-portal/dashboard?token=${encodeURIComponent(data.token)}`;
       }
     } catch {
       setError("Verbindungsfehler. Bitte versuche es erneut.");
