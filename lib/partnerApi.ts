@@ -83,4 +83,54 @@ export const partnerApi = {
     });
     return res.json();
   },
+
+  async listCustomers() {
+    const res = await fetch(`${BASE}/partner/customers`, { headers: authHeaders() });
+    return res.json();
+  },
+  async createCustomer(data: { name: string; info?: string; hostingType?: string; domain?: string; serverLicenseKey?: string }) {
+    const res = await fetch(`${BASE}/partner/customers`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+  async getCustomer(id: string) {
+    const res = await fetch(`${BASE}/partner/customers/${id}`, { headers: authHeaders() });
+    return res.json();
+  },
+  async updateCustomer(id: string, data: { name?: string; info?: string; hostingType?: string; domain?: string; serverLicenseKey?: string }) {
+    const res = await fetch(`${BASE}/partner/customers/${id}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+  async deleteCustomer(id: string) {
+    await fetch(`${BASE}/partner/customers/${id}`, { method: "DELETE", headers: authHeaders() });
+  },
+  async addSeats(customerId: string, data: { label?: string; count?: number }) {
+    const res = await fetch(`${BASE}/partner/customers/${customerId}/seats`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+  async updateSeat(customerId: string, seatId: string, data: { status?: string; label?: string }) {
+    const res = await fetch(`${BASE}/partner/customers/${customerId}/seats/${seatId}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+  async deleteSeat(customerId: string, seatId: string) {
+    await fetch(`${BASE}/partner/customers/${customerId}/seats/${seatId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  },
 };
