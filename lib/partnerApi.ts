@@ -51,4 +51,24 @@ export const partnerApi = {
       headers: authHeaders(),
     });
   },
+  async stripeConnectCreate() {
+    const res = await fetch(`${BASE}/partner/stripe/connect`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    return res.json();
+  },
+  async stripeConnectLink() {
+    const res = await fetch(`${BASE}/partner/stripe/connect/link`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    return res.json();
+  },
+  async stripeConnectStatus() {
+    const res = await fetch(`${BASE}/partner/stripe/connect/status`, {
+      headers: authHeaders(),
+    });
+    return res.json();
+  },
 };
