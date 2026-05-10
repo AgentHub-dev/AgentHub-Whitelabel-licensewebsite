@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { partnerApi } from "@/lib/partnerApi";
@@ -21,11 +21,7 @@ function decodeJwt(token: string): JwtPayload {
   }
 }
 
-export default function PartnerPortalLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -34,23 +30,18 @@ export default function PartnerPortalLayout({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // 1. Read ?token= from URL → store in localStorage → clean URL
     const urlToken = searchParams.get("token");
     if (urlToken) {
       localStorage.setItem("partner_token", urlToken);
-      // Remove token from URL without full page reload
-      const cleanUrl = pathname;
-      window.history.replaceState({}, "", cleanUrl);
+      window.history.replaceState({}, "", pathname);
     }
 
-    // 2. Auth guard
     const stored = localStorage.getItem("partner_token");
     if (!stored) {
       router.replace("/portal");
       return;
     }
 
-    // 3. Decode JWT for role + name
     const payload = decodeJwt(stored);
     setRole(payload.role ?? "member");
     setName(payload.name ?? "Partner");
@@ -199,5 +190,41 @@ export default function PartnerPortalLayout({
         {children}
       </main>
     </div>
+  );
+}
+
+export default function PartnerPortalLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+          <svg
+            className="w-8 h-8 text-[#1a3a5c] animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+        </div>
+      }
+    >
+      <PartnerPortalLayoutInner>{children}</PartnerPortalLayoutInner>
+    </Suspense>
   );
 }
