@@ -51,6 +51,18 @@ export const partnerApi = {
       headers: authHeaders(),
     });
   },
+  async getPricing() {
+    const res = await fetch(`${BASE}/partner/pricing`, { headers: authHeaders() });
+    return res.json();
+  },
+  async updatePricing(data: { tier2Price?: number; tier3PartnerFee?: number }) {
+    const res = await fetch(`${BASE}/partner/pricing`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
   async stripeConnectCreate() {
     const res = await fetch(`${BASE}/partner/stripe/connect`, {
       method: "POST",
