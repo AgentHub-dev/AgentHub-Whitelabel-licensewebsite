@@ -107,12 +107,10 @@ function fmtDate(d: string | null) {
 function CreateLicenseModal({
   onClose,
   onCreated,
-  token,
   partners,
 }: {
   onClose: () => void;
   onCreated: () => void;
-  token: string;
   partners: Partner[];
 }) {
   const [form, setForm] = useState({
@@ -151,7 +149,7 @@ function CreateLicenseModal({
 
       const res = await fetch("/api/admin/licenses", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -313,12 +311,10 @@ function CreateLicenseModal({
 function CreateCustomerModal({
   onClose,
   onCreated,
-  token,
   partners,
 }: {
   onClose: () => void;
   onCreated: () => void;
-  token: string;
   partners: Partner[];
 }) {
   const [form, setForm] = useState({
@@ -341,7 +337,7 @@ function CreateCustomerModal({
     try {
       const res = await fetch("/api/admin/customers", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           partnerId: form.partnerId,
           name: form.name,
@@ -429,13 +425,11 @@ function AbuseSuspendModal({
   tenant,
   onClose,
   onSuspended,
-  token,
 }: {
   licenseKey: string;
   tenant: string | null;
   onClose: () => void;
   onSuspended: () => void;
-  token: string;
 }) {
   const [reason, setReason] = useState("Manuell durch Admin gesperrt wegen Missbrauch.");
   const [loading, setLoading] = useState(false);
@@ -447,7 +441,7 @@ function AbuseSuspendModal({
     try {
       const res = await fetch("/api/admin/abuse", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: licenseKey, reason }),
       });
       const data = await res.json();
@@ -499,11 +493,9 @@ function AbuseSuspendModal({
 
 function LicenseRow({
   license,
-  token,
   onRefresh,
 }: {
   license: License;
-  token: string;
   onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -515,7 +507,7 @@ function LicenseRow({
     try {
       await fetch(`/api/admin/licenses?key=${license.key}&action=status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
       onRefresh();
@@ -530,7 +522,6 @@ function LicenseRow({
     try {
       await fetch(`/api/admin/licenses?key=${license.key}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       onRefresh();
     } finally {
@@ -617,7 +608,6 @@ function LicenseRow({
         <AbuseSuspendModal
           licenseKey={license.key}
           tenant={license.tenant_name}
-          token={token}
           onClose={() => setShowAbuse(false)}
           onSuspended={() => { setShowAbuse(false); onRefresh(); }}
         />
@@ -629,13 +619,11 @@ function LicenseRow({
 // ─── Partners Tab ─────────────────────────────────────────────────────────────
 
 function PartnersTab({
-  token,
   partners,
   customers,
   loadingData,
   onRefresh,
 }: {
-  token: string;
   partners: Partner[];
   customers: Customer[];
   loadingData: boolean;
@@ -735,7 +723,6 @@ function PartnersTab({
 
       {showCreateCustomer && (
         <CreateCustomerModal
-          token={token}
           partners={partners}
           onClose={() => setShowCreateCustomer(false)}
           onCreated={() => { setShowCreateCustomer(false); onRefresh(); }}
@@ -756,24 +743,22 @@ export default function AdminPortal() {
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
-  const [token, setToken] = useState("");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTier, setFilterTier] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
 
-  const loadAll = useCallback(async (t: string) => {
+  const loadAll = useCallback(async () => {
     setLoadingData(true);
     try {
       const [licRes, partRes, custRes, statsRes] = await Promise.all([
-        fetch("/api/admin/licenses", { headers: { Authorization: `Bearer ${t}` } }),
-        fetch("/api/admin/partners", { headers: { Authorization: `Bearer ${t}` } }),
-        fetch("/api/admin/customers", { headers: { Authorization: `Bearer ${t}` } }),
-        fetch("/api/admin/stats", { headers: { Authorization: `Bearer ${t}` } }),
+        fetch("/api/admin/licenses"),
+        fetch("/api/admin/partners"),
+        fetch("/api/admin/customers"),
+        fetch("/api/admin/stats"),
       ]);
 
       if (licRes.status === 401 || licRes.status === 403) {
-        localStorage.removeItem("admin_token");
         router.push("/portal");
         return;
       }
@@ -795,14 +780,11 @@ export default function AdminPortal() {
   }, [router]);
 
   useEffect(() => {
-    const t = localStorage.getItem("admin_token");
-    if (!t) { router.push("/portal"); return; }
-    setToken(t);
-    loadAll(t);
-  }, [router, loadAll]);
+    loadAll();
+  }, [loadAll]);
 
-  const logout = () => {
-    localStorage.removeItem("admin_token");
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("partner_token");
     router.push("/portal");
   };
@@ -848,7 +830,7 @@ export default function AdminPortal() {
             <Link href="/partner-portal/dashboard" className="text-[#0071e3] text-[13px] hover:underline hidden md:block">
               → Partner-Portal
             </Link>
-            <button onClick={() => loadAll(token)} className="text-[#6e6e73] hover:text-[#1d1d1f] transition-colors" title="Aktualisieren">
+            <button onClick={() => loadAll()} className="text-[#6e6e73] hover:text-[#1d1d1f] transition-colors" title="Aktualisieren">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -940,7 +922,7 @@ export default function AdminPortal() {
                     </thead>
                     <tbody>
                       {filtered.map((l) => (
-                        <LicenseRow key={l.id} license={l} token={token} onRefresh={() => loadAll(token)} />
+                        <LicenseRow key={l.id} license={l} onRefresh={() => loadAll()} />
                       ))}
                     </tbody>
                   </table>
@@ -959,11 +941,10 @@ export default function AdminPortal() {
         {/* ── Partner & Kunden Tab ── */}
         {tab === "partner" && (
           <PartnersTab
-            token={token}
             partners={partners}
             customers={customers}
             loadingData={loadingData}
-            onRefresh={() => loadAll(token)}
+            onRefresh={() => loadAll()}
           />
         )}
 
@@ -1011,10 +992,9 @@ export default function AdminPortal() {
 
       {showCreate && (
         <CreateLicenseModal
-          token={token}
           partners={partners}
           onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); loadAll(token); }}
+          onCreated={() => { setShowCreate(false); loadAll(); }}
         />
       )}
     </div>

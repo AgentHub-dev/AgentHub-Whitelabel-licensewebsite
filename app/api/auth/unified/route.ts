@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
@@ -33,22 +34,32 @@ export async function POST(req: NextRequest) {
     const isAdmin =
       !!adminEmail && email.toLowerCase() === adminEmail.toLowerCase();
 
-    let adminToken: string | undefined;
+    const response = NextResponse.json({
+      token: data.token,
+      partner: data.partner,
+      isAdmin,
+    });
+
     if (isAdmin) {
       const jwtSecret = process.env.JWT_SECRET;
       if (jwtSecret) {
-        adminToken = jwt.sign({ role: "admin" }, jwtSecret, {
-          expiresIn: "24h",
+        const adminToken = jwt.sign(
+          { role: "admin", jti: randomUUID() },
+          jwtSecret,
+          { expiresIn: "24h" }
+        );
+        const isSecure = process.env.NODE_ENV === "production";
+        response.cookies.set("admin_token", adminToken, {
+          httpOnly: true,
+          secure: isSecure,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 86400,
         });
       }
     }
 
-    return NextResponse.json({
-      token: data.token,
-      partner: data.partner,
-      isAdmin,
-      adminToken,
-    });
+    return response;
   } catch {
     return NextResponse.json(
       { error: "Verbindung zum Server fehlgeschlagen." },

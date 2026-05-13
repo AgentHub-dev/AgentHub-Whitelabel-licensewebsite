@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { partnerApi } from "@/lib/partnerApi";
 
@@ -33,7 +33,6 @@ function Spinner() {
 function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [role, setRole] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -41,12 +40,6 @@ function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const urlToken = searchParams.get("token");
-    if (urlToken) {
-      localStorage.setItem("partner_token", urlToken);
-      window.history.replaceState({}, "", pathname);
-    }
-
     const stored = localStorage.getItem("partner_token");
     if (!stored) {
       router.replace("/portal");
@@ -57,7 +50,7 @@ function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
     setRole(payload.role ?? "member");
     setName(payload.name ?? "Partner");
     setReady(true);
-  }, [pathname, router, searchParams]);
+  }, [pathname, router]);
 
   // Close mobile drawer on route change
   useEffect(() => {

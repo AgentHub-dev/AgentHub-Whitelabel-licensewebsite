@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
-
-function verifyAdmin(req: NextRequest): boolean {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return false;
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) return false;
-  try {
-    const p = jwt.verify(auth.slice(7), jwtSecret) as { role?: string };
-    return p.role === "admin";
-  } catch {
-    return false;
-  }
-}
+import { verifyAdmin } from "@/lib/verifyAdmin";
 
 export async function GET(req: NextRequest) {
   if (!verifyAdmin(req)) {

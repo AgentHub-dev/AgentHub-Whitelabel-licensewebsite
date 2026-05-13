@@ -30,15 +30,14 @@ export default function PortalLogin() {
         return;
       }
 
-      if (data.isAdmin && data.adminToken) {
-        // Admin: echtes admin JWT für das Lizenz-Dashboard speichern
-        localStorage.setItem("admin_token", data.adminToken);
-        // Partner-Token zusätzlich speichern für Partner-Portal-Zugriff
+      if (data.isAdmin) {
+        // Admin: cookie is set server-side (HttpOnly) — no token in client storage
         localStorage.setItem("partner_token", data.token);
         router.push("/portal/admin");
       } else {
-        // Partner → Partner-Portal mit Token in URL
-        window.location.href = `/partner-portal/dashboard?token=${encodeURIComponent(data.token)}`;
+        // Partner: store token in localStorage, redirect without token in URL
+        localStorage.setItem("partner_token", data.token);
+        router.push("/partner-portal/dashboard");
       }
     } catch {
       setError("Verbindungsfehler. Bitte versuche es erneut.");
