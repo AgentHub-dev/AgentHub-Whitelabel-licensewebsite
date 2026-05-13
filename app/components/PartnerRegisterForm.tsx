@@ -50,8 +50,9 @@ export default function PartnerRegisterForm() {
       }
 
       setSuccess(true);
+      localStorage.setItem("partner_token", data.token);
       setTimeout(() => {
-        window.location.href = `/partner-portal/dashboard?token=${encodeURIComponent(data.token)}`;
+        window.location.href = "/partner-portal/dashboard";
       }, 2000);
     } catch {
       setError("Verbindungsfehler. Bitte versuche es erneut.");
