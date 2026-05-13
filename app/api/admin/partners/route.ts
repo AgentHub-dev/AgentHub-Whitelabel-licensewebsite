@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdmin } from "@/lib/verifyAdmin";
+import { verifyAdmin, getAdminToken } from "@/lib/verifyAdmin";
 
 export async function GET(req: NextRequest) {
   if (!verifyAdmin(req)) {
@@ -7,11 +7,11 @@ export async function GET(req: NextRequest) {
   }
 
   const licenseServerUrl = process.env.LICENSE_SERVER_URL || "http://localhost:3100";
-  const adminSecret = process.env.ADMIN_SECRET;
+  const token = getAdminToken(req);
 
   try {
     const res = await fetch(`${licenseServerUrl}/admin/partners`, {
-      headers: { Authorization: `Bearer ${adminSecret}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });

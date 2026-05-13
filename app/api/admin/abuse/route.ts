@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdmin } from "@/lib/verifyAdmin";
+import { verifyAdmin, getAdminToken } from "@/lib/verifyAdmin";
 
 export async function POST(req: NextRequest) {
   if (!verifyAdmin(req)) {
@@ -7,11 +7,14 @@ export async function POST(req: NextRequest) {
   }
 
   const licenseServerUrl = process.env.LICENSE_SERVER_URL || "http://localhost:3100";
-  const adminSecret = process.env.ADMIN_SECRET;
+  const token = getAdminToken(req);
   const { key, reason } = await req.json();
 
   if (!key) {
     return NextResponse.json({ error: "key erforderlich" }, { status: 400 });
+  }
+  if (!/^WL-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(key)) {
+    return NextResponse.json({ error: "Invalid key format" }, { status: 400 });
   }
 
   try {
@@ -19,7 +22,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminSecret}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ reason }),
     });

@@ -21,3 +21,16 @@ export function verifyAdmin(req: NextRequest): boolean {
     return false;
   }
 }
+
+/**
+ * Returns the raw admin JWT from the cookie or Authorization header.
+ * Used to forward the token to the backend so the backend can verify
+ * the JTI blacklist (revoked tokens after logout).
+ */
+export function getAdminToken(req: NextRequest): string | null {
+  const cookieToken = req.cookies.get("admin_token")?.value;
+  if (cookieToken) return cookieToken;
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
+  return null;
+}
