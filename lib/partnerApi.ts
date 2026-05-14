@@ -109,6 +109,7 @@ export const partnerApi = {
     name: string; email: string; info?: string;
     deploymentType?: string; serverOwner?: string;
     serverType?: string; serverLocation?: string; ollamaMode?: string;
+    tier2PriceCents?: number; seatPriceCents?: number;
   }) {
     const res = await fetch(`${BASE}/partner/customers`, {
       method: "POST", headers: authHeaders(), body: JSON.stringify(data),
