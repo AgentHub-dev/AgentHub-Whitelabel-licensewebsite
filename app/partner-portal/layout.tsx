@@ -8,6 +8,7 @@ import { partnerApi } from "@/lib/partnerApi";
 interface JwtPayload {
   role?: string;
   name?: string;
+  isAdmin?: boolean;
   exp?: number;
 }
 
@@ -35,6 +36,7 @@ function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [ready, setReady] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -49,6 +51,7 @@ function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
     const payload = decodeJwt(stored);
     setRole(payload.role ?? "member");
     setName(payload.name ?? "Partner");
+    setIsAdmin(payload.isAdmin === true);
     setReady(true);
   }, [pathname, router]);
 
@@ -108,6 +111,11 @@ function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
       </svg>
     )},
+    ...(isAdmin ? [{ href: "/partner-portal/admin", label: "Admin-Panel", icon: (
+      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    )}] : []),
   ];
 
   const memberNav = [
@@ -155,7 +163,10 @@ function PartnerPortalLayoutInner({ children }: { children: React.ReactNode }) {
               </span>
             </div>
             <div className="overflow-hidden">
-              <div className="text-white text-[13px] font-medium truncate">{name ?? "Partner"}</div>
+              <div className="text-white text-[13px] font-medium truncate flex items-center gap-1.5">
+                {name ?? "Partner"}
+                {isAdmin && <span className="text-[9px] font-bold bg-[#c9a84c] text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0">Admin</span>}
+              </div>
               <div className="text-white/50 text-[11px] capitalize">{role ?? "member"}</div>
             </div>
           </div>

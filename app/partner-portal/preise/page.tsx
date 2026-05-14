@@ -15,14 +15,15 @@ function fmt(n: number) {
   return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function getRole(): string {
+function getTokenPayload(): { role: string; isAdmin: boolean } {
   try {
     const token = localStorage.getItem("partner_token");
-    if (!token) return "member";
+    if (!token) return { role: "member", isAdmin: false };
     const b = token.split(".")[1];
     const p = b + "=".repeat((4 - (b.length % 4)) % 4);
-    return JSON.parse(atob(p)).role ?? "member";
-  } catch { return "member"; }
+    const payload = JSON.parse(atob(p));
+    return { role: payload.role ?? "member", isAdmin: payload.isAdmin === true };
+  } catch { return { role: "member", isAdmin: false }; }
 }
 
 function SplitBar({ a, b, total, colorA, colorB }: { a: number; b: number; total: number; colorA: string; colorB: string }) {
@@ -39,6 +40,7 @@ export default function PreisePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isOwner, setIsOwner] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [tier2, setTier2] = useState("");
   const [tier3, setTier3] = useState("");
@@ -47,7 +49,9 @@ export default function PreisePage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    setIsOwner(getRole() === "owner");
+    const { role, isAdmin: admin } = getTokenPayload();
+    setIsOwner(role === "owner" || role === "admin");
+    setIsAdmin(admin);
     partnerApi.getPricing()
       .then((data: Pricing) => {
         setPricing(data);
@@ -66,7 +70,8 @@ export default function PreisePage() {
     const t2 = parseFloat(tier2);
     const t3 = parseFloat(tier3);
     if (isNaN(t2) || isNaN(t3)) { setSaveError("Bitte gültige Zahlen eingeben."); setSaving(false); return; }
-    if (t2 < (pricing?.alexServerFloor ?? 149)) { setSaveError(`Mindestpreis Server-Lizenz: ${pricing?.alexServerFloor ?? 149}€`); setSaving(false); return; }
+    if (!isAdmin && t2 < (pricing?.alexServerFloor ?? 149)) { setSaveError(`Mindestpreis Server-Lizenz: ${pricing?.alexServerFloor ?? 149}€`); setSaving(false); return; }
+    if (t2 < 0) { setSaveError("Preis muss >= 0 sein."); setSaving(false); return; }
     if (t3 < 0) { setSaveError("Partner-Gebühr muss >= 0 sein."); setSaving(false); return; }
     try {
       const updated = await partnerApi.updatePricing({ tier2Price: t2, tier3PartnerFee: t3 });
@@ -191,15 +196,21 @@ export default function PreisePage() {
                   <div>
                     <label className="block text-[#1d1d1f] text-[13px] font-medium mb-1.5">
                       Server-Lizenzpreis (€)
-                      <span className="text-[#6e6e73] font-normal ml-1">min. {pricing?.alexServerFloor ?? 149} €</span>
+                      {isAdmin
+                        ? <span className="text-[#c9a84c] font-normal ml-1">Admin: kein Mindestpreis</span>
+                        : <span className="text-[#6e6e73] font-normal ml-1">min. {pricing?.alexServerFloor ?? 149} €</span>
+                      }
                     </label>
                     <div className="relative">
-                      <input type="number" value={tier2} onChange={(e) => { setTier2(e.target.value); setSaveError(""); }} min={pricing?.alexServerFloor ?? 149} step="1"
+                      <input type="number" value={tier2} onChange={(e) => { setTier2(e.target.value); setSaveError(""); }} min={isAdmin ? 0 : (pricing?.alexServerFloor ?? 149)} step="1"
                         className="w-full px-4 py-2.5 pr-10 text-[14px] text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl outline-none focus:border-[#1a3a5c] focus:ring-2 focus:ring-[#1a3a5c]/20 transition-all" />
                       <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#6e6e73] text-[13px]">€</span>
                     </div>
                     <p className="text-[#6e6e73] text-[11px] mt-1">
-                      Deine Marge: <span className="font-semibold text-[#1a3a5c]">{fmt(Math.max(0, parseFloat(tier2) - (pricing?.alexServerFloor ?? 149)))} €</span>
+                      {isAdmin
+                        ? <span className="text-[#c9a84c] font-semibold">Admin-Override: 0 € möglich</span>
+                        : <>Deine Marge: <span className="font-semibold text-[#1a3a5c]">{fmt(Math.max(0, parseFloat(tier2) - (pricing?.alexServerFloor ?? 149)))} €</span></>
+                      }
                     </p>
                   </div>
                   <div>
@@ -260,18 +271,23 @@ export default function PreisePage() {
             </div>
           </div>
 
-          <div className="bg-[#f5f5f7] rounded-2xl p-5 border border-[#d2d2d7]/40">
-            <h3 className="text-[#1d1d1f] text-[13px] font-semibold mb-3">Hinweise</h3>
+          <div className={`rounded-2xl p-5 border ${isAdmin ? "bg-[#c9a84c]/10 border-[#c9a84c]/30" : "bg-[#f5f5f7] border-[#d2d2d7]/40"}`}>
+            <h3 className="text-[#1d1d1f] text-[13px] font-semibold mb-3">{isAdmin ? "Admin-Hinweise" : "Hinweise"}</h3>
             <div className="space-y-2.5">
-              {[
+              {(isAdmin ? [
+                "Admin-Modus: alle Preisfloors deaktiviert",
+                "Server-Lizenz: auch 0 € möglich",
+                "Seat-Lizenz: auch 0 € möglich",
+                "Preisänderungen gelten sofort",
+              ] : [
                 `Server-Lizenz: mindestens ${pricing?.alexServerFloor ?? 149} €`,
                 "Seat-Marge: beliebig hoch, auch 0 € möglich",
                 "Preisänderungen gelten für neue Kunden sofort",
                 "Bestehende Verträge laufen zum alten Preis weiter",
-              ].map((text) => (
+              ]).map((text) => (
                 <div key={text} className="flex items-start gap-2">
-                  <span className="w-1 h-1 rounded-full bg-[#6e6e73] mt-1.5 flex-shrink-0" />
-                  <span className="text-[#6e6e73] text-[12px] leading-relaxed">{text}</span>
+                  <span className={`w-1 h-1 rounded-full mt-1.5 flex-shrink-0 ${isAdmin ? "bg-[#c9a84c]" : "bg-[#6e6e73]"}`} />
+                  <span className={`text-[12px] leading-relaxed ${isAdmin ? "text-[#a07c30]" : "text-[#6e6e73]"}`}>{text}</span>
                 </div>
               ))}
             </div>
