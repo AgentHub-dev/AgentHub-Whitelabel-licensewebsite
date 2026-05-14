@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       if (seatId && subscriptionId) {
         try {
           await adminFetch(licenseServerUrl, adminSecret, `/admin/seats/${seatId}/subscription`, "PATCH", {
-            subscriptionId,
+            stripeSubscriptionId: subscriptionId,
           });
           console.log(`[Tier3] Seat ${seatId} activated with sub ${subscriptionId}`);
         } catch (err) {
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
           // Persist subscription ID for future pause/cancel handling
           if (subscriptionId) {
             await adminFetch(licenseServerUrl, adminSecret, `/admin/licenses/${licenseKey}/subscription`, "PATCH", {
-              subscriptionId,
+              stripeSubscriptionId: subscriptionId,
             });
           }
         } else {
