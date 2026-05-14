@@ -21,6 +21,14 @@ export async function GET(req: NextRequest) {
 
   const licenseServerUrl = process.env.LICENSE_SERVER_URL || "http://localhost:3100";
   const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) {
+    return NextResponse.json({ error: "Server nicht konfiguriert." }, { status: 503 });
+  }
+
+  // Validate licenseKey from JWT payload before using in URL path
+  if (!/^WL-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(payload.licenseKey)) {
+    return NextResponse.json({ error: "Ungültiger Token." }, { status: 401 });
+  }
 
   try {
     const res = await fetch(

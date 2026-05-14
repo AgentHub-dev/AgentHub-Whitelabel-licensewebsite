@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const licenseServerUrl = process.env.LICENSE_SERVER_URL || "http://localhost:3100";
   const adminSecret = process.env.ADMIN_SECRET;
 
-  if (!secretKey || !webhookSecret) {
+  if (!secretKey || !webhookSecret || !adminSecret) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
   }
 
