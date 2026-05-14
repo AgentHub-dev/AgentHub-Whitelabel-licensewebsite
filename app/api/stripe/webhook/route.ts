@@ -58,6 +58,92 @@ async function sendStatusEmail(email: string, status: "paused" | "cancelled") {
   });
 }
 
+// ─── Tier 3 helpers ───────────────────────────────────────────────────────────
+
+async function adminFetch(
+  licenseServerUrl: string,
+  adminSecret: string,
+  path: string,
+  method = "GET",
+  body?: object
+): Promise<Response> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${adminSecret}` };
+  if (body) headers["Content-Type"] = "application/json";
+  return fetch(`${licenseServerUrl}${path}`, {
+    method,
+    headers,
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
+// Creates Stripe transfers for Tier 1 and Tier 2 from a paid invoice.
+// Uses idempotency keys derived from the invoice ID to survive retries.
+async function createTier3Transfers(
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+  sub: Stripe.Subscription
+): Promise<void> {
+  const meta = sub.metadata ?? {};
+
+  const tier2Account = meta.tier2StripeAccount;
+  const tier1Account = meta.tier1StripeAccount;
+  const tier2Cents = Number(meta.tier2Cents ?? "0");
+  const tier1Cents = Number(meta.tier1Cents ?? "0");
+
+  // invoice.charge is the Stripe Charge ID — required as source_transaction
+  const chargeId =
+    typeof invoice.charge === "string"
+      ? invoice.charge
+      : (invoice.charge as Stripe.Charge | null)?.id ?? null;
+
+  if (!chargeId) {
+    console.error("[Tier3 webhook] No charge on invoice", invoice.id);
+    return;
+  }
+
+  // Transfer to Tier 2 (server owner)
+  if (tier2Account && tier2Cents > 0) {
+    try {
+      await stripe.transfers.create(
+        {
+          amount: tier2Cents,
+          currency: "eur",
+          destination: tier2Account,
+          source_transaction: chargeId,
+          description: `Tier3 seat — ${meta.seatId ?? ""}`,
+          metadata: { invoiceId: invoice.id, seatId: meta.seatId ?? "" },
+        },
+        { idempotencyKey: `t2-${invoice.id}` }
+      );
+      console.log(`[Tier3] Transferred ${tier2Cents}ct to Tier2 ${tier2Account}`);
+    } catch (err) {
+      console.error("[Tier3] Tier2 transfer failed", err);
+    }
+  }
+
+  // Transfer to Tier 1 (partner)
+  if (tier1Account && tier1Cents > 0) {
+    try {
+      await stripe.transfers.create(
+        {
+          amount: tier1Cents,
+          currency: "eur",
+          destination: tier1Account,
+          source_transaction: chargeId,
+          description: `Tier3 seat partner fee — ${meta.seatId ?? ""}`,
+          metadata: { invoiceId: invoice.id, seatId: meta.seatId ?? "" },
+        },
+        { idempotencyKey: `t1-${invoice.id}` }
+      );
+      console.log(`[Tier3] Transferred ${tier1Cents}ct to Tier1 ${tier1Account}`);
+    } catch (err) {
+      console.error("[Tier3] Tier1 transfer failed", err);
+    }
+  }
+}
+
+// ─── Webhook handler ──────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -79,75 +165,208 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // ── checkout.session.completed ────────────────────────────────────────────
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const email = session.customer_details?.email || session.customer_email;
-    const name = session.customer_details?.name || "";
+    const isTier3 = session.metadata?.tier === "tier3";
 
-    try {
-      const res = await fetch(`${licenseServerUrl}/admin/licenses`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminSecret}`,
-        },
-        body: JSON.stringify({
+    if (isTier3) {
+      // Tier 3 seat purchase: link subscription to seat and activate it
+      const seatId = session.metadata?.seatId;
+      const subscriptionId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : (session.subscription as Stripe.Subscription | null)?.id ?? null;
+
+      if (seatId && subscriptionId) {
+        try {
+          await adminFetch(licenseServerUrl, adminSecret, `/admin/seats/${seatId}/subscription`, "PATCH", {
+            subscriptionId,
+          });
+          console.log(`[Tier3] Seat ${seatId} activated with sub ${subscriptionId}`);
+        } catch (err) {
+          console.error("[Tier3] Failed to activate seat", err);
+        }
+      } else {
+        console.error("[Tier3] checkout.session.completed missing seatId or subscriptionId", session.id);
+      }
+    } else {
+      // Standard Tier 2 license purchase: create a new server license
+      const email = session.customer_details?.email || session.customer_email;
+      const name = session.customer_details?.name || "";
+      const subscriptionId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : (session.subscription as Stripe.Subscription | null)?.id ?? null;
+
+      try {
+        const res = await adminFetch(licenseServerUrl, adminSecret, `/admin/licenses`, "POST", {
           tenantName: name,
           tenantEmail: email,
           maxUsers: 999,
           notes: `Stripe session: ${session.id}`,
           status: "active",
-        }),
-      });
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        console.log("License created:", data.key, "for", email);
-        if (email) await sendLicenseEmail(email, name, data.key);
-      } else {
-        console.error("Failed to create license for session:", session.id);
+        if (res.ok) {
+          const data = await res.json();
+          const licenseKey: string = data.key;
+          console.log("License created:", licenseKey, "for", email);
+          if (email) await sendLicenseEmail(email, name, licenseKey);
+
+          // Persist subscription ID for future pause/cancel handling
+          if (subscriptionId) {
+            await adminFetch(licenseServerUrl, adminSecret, `/admin/licenses/${licenseKey}/subscription`, "PATCH", {
+              subscriptionId,
+            });
+          }
+        } else {
+          console.error("Failed to create license for session:", session.id);
+        }
+      } catch (err) {
+        console.error("License creation error:", err);
       }
-    } catch (err) {
-      console.error("License creation error:", err);
     }
   }
 
-  if (event.type === "customer.subscription.deleted" || event.type === "invoice.payment_failed") {
-    const obj = event.data.object as Stripe.Subscription | Stripe.Invoice;
-    const customerId = "customer" in obj ? (obj.customer as string) : undefined;
+  // ── invoice.paid ──────────────────────────────────────────────────────────
+  if (event.type === "invoice.paid") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const subId =
+      typeof invoice.subscription === "string"
+        ? invoice.subscription
+        : (invoice.subscription as Stripe.Subscription | null)?.id ?? null;
 
-    if (customerId) {
-      try {
-        const customer = await stripe.customers.retrieve(customerId);
-        const email = !customer.deleted && "email" in customer ? customer.email : null;
+    if (!subId) {
+      return NextResponse.json({ received: true });
+    }
 
-        if (email) {
-          const res = await fetch(`${licenseServerUrl}/admin/licenses`, {
-            headers: { Authorization: `Bearer ${adminSecret}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const licenses: Array<{ tenant_email: string; key: string }> = data.licenses || [];
-            const license = licenses.find(
-              (l) => l.tenant_email?.toLowerCase() === email.toLowerCase()
-            );
-            if (license) {
-              const newStatus = event.type === "customer.subscription.deleted" ? "cancelled" : "paused";
-              await fetch(`${licenseServerUrl}/admin/licenses/${license.key}/status`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminSecret}` },
-                body: JSON.stringify({ status: newStatus }),
-              });
-              await sendStatusEmail(email, newStatus);
-              console.log(`License ${license.key} set to ${newStatus} for ${email}`);
-            }
-          }
+    try {
+      const sub = await stripe.subscriptions.retrieve(subId);
+      const isTier3 = sub.metadata?.tier === "tier3";
+
+      if (isTier3) {
+        const seatId = sub.metadata?.seatId;
+        if (!seatId) {
+          console.error("[Tier3] invoice.paid — missing seatId in subscription metadata", subId);
+          return NextResponse.json({ received: true });
         }
-      } catch (err) {
-        console.error("License pause/cancel error:", err);
+
+        // Reactivate seat if it was paused for payment failure
+        await adminFetch(licenseServerUrl, adminSecret, `/admin/seats/${seatId}/status`, "PATCH", {
+          status: "active",
+        });
+
+        // Create Transfers to Tier 1 and Tier 2
+        await createTier3Transfers(stripe, invoice, sub);
+        console.log(`[Tier3] invoice.paid processed for seat ${seatId}`);
+      }
+    } catch (err) {
+      console.error("[Tier3] invoice.paid error", err);
+    }
+  }
+
+  // ── invoice.payment_failed ────────────────────────────────────────────────
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const subId =
+      typeof invoice.subscription === "string"
+        ? invoice.subscription
+        : (invoice.subscription as Stripe.Subscription | null)?.id ?? null;
+
+    if (!subId) {
+      return NextResponse.json({ received: true });
+    }
+
+    try {
+      const sub = await stripe.subscriptions.retrieve(subId);
+      const isTier3 = sub.metadata?.tier === "tier3";
+
+      if (isTier3) {
+        const seatId = sub.metadata?.seatId;
+        if (seatId) {
+          await adminFetch(licenseServerUrl, adminSecret, `/admin/seats/${seatId}/status`, "PATCH", {
+            status: "payment_failed",
+          });
+          console.log(`[Tier3] Seat ${seatId} suspended — payment_failed`);
+        }
+      } else {
+        // Standard Tier 2 license: pause by email lookup
+        const customerId =
+          typeof invoice.customer === "string"
+            ? invoice.customer
+            : (invoice.customer as Stripe.Customer | null)?.id ?? null;
+
+        if (customerId) {
+          await pauseOrCancelLicenseByCustomer(stripe, licenseServerUrl, adminSecret, customerId, "paused");
+        }
+      }
+    } catch (err) {
+      console.error("invoice.payment_failed error:", err);
+    }
+  }
+
+  // ── customer.subscription.deleted ────────────────────────────────────────
+  if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object as Stripe.Subscription;
+    const isTier3 = sub.metadata?.tier === "tier3";
+
+    if (isTier3) {
+      const seatId = sub.metadata?.seatId;
+      if (seatId) {
+        try {
+          await adminFetch(licenseServerUrl, adminSecret, `/admin/seats/${seatId}/status`, "PATCH", {
+            status: "inactive",
+          });
+          console.log(`[Tier3] Seat ${seatId} deactivated — subscription cancelled`);
+        } catch (err) {
+          console.error("[Tier3] subscription.deleted error:", err);
+        }
+      }
+    } else {
+      // Standard Tier 2 license: cancel by email lookup
+      const customerId =
+        typeof sub.customer === "string"
+          ? sub.customer
+          : (sub.customer as Stripe.Customer | null)?.id ?? null;
+
+      if (customerId) {
+        try {
+          await pauseOrCancelLicenseByCustomer(stripe, licenseServerUrl, adminSecret, customerId, "cancelled");
+        } catch (err) {
+          console.error("subscription.deleted error:", err);
+        }
       }
     }
   }
 
   return NextResponse.json({ received: true });
+}
+
+// Legacy helper: find a Tier 2 license by Stripe customer email and update its status
+async function pauseOrCancelLicenseByCustomer(
+  stripe: Stripe,
+  licenseServerUrl: string,
+  adminSecret: string,
+  customerId: string,
+  newStatus: "paused" | "cancelled"
+): Promise<void> {
+  const customer = await stripe.customers.retrieve(customerId);
+  const email = !customer.deleted && "email" in customer ? customer.email : null;
+  if (!email) return;
+
+  const res = await adminFetch(licenseServerUrl, adminSecret, `/admin/licenses`);
+  if (!res.ok) return;
+
+  const data = await res.json();
+  const licenses: Array<{ tenant_email: string; key: string }> = data.licenses || [];
+  const license = licenses.find((l) => l.tenant_email?.toLowerCase() === email.toLowerCase());
+
+  if (license) {
+    await adminFetch(licenseServerUrl, adminSecret, `/admin/licenses/${license.key}/status`, "PUT", {
+      status: newStatus,
+    });
+    await sendStatusEmail(email, newStatus);
+    console.log(`License ${license.key} set to ${newStatus} for ${email}`);
+  }
 }
