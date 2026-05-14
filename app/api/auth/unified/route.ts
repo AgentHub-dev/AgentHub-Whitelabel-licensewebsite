@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
-import { randomUUID } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
@@ -31,8 +31,19 @@ export async function POST(req: NextRequest) {
     }
 
     const adminEmail = process.env.ADMIN_EMAIL ?? "";
-    const isAdmin =
-      !!adminEmail && email.toLowerCase() === adminEmail.toLowerCase();
+    const adminSecret = process.env.ADMIN_SECRET ?? "";
+    const jwtSecret = process.env.JWT_SECRET;
+
+    // Email match alone is insufficient — also verify password against ADMIN_SECRET
+    // to prevent an attacker who registered with the admin email from getting admin JWT.
+    let isAdmin = false;
+    if (adminEmail && email.toLowerCase() === adminEmail.toLowerCase() && adminSecret && jwtSecret) {
+      try {
+        const a = Buffer.from(password);
+        const b = Buffer.from(adminSecret);
+        isAdmin = a.length === b.length && timingSafeEqual(a, b);
+      } catch { /* length mismatch → not admin */ }
+    }
 
     const response = NextResponse.json({
       token: data.token,
@@ -40,23 +51,20 @@ export async function POST(req: NextRequest) {
       isAdmin,
     });
 
-    if (isAdmin) {
-      const jwtSecret = process.env.JWT_SECRET;
-      if (jwtSecret) {
-        const adminToken = jwt.sign(
-          { role: "admin", jti: randomUUID() },
-          jwtSecret,
-          { expiresIn: "24h" }
-        );
-        const isSecure = process.env.NODE_ENV === "production";
-        response.cookies.set("admin_token", adminToken, {
-          httpOnly: true,
-          secure: isSecure,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 86400,
-        });
-      }
+    if (isAdmin && jwtSecret) {
+      const adminToken = jwt.sign(
+        { role: "admin", jti: randomUUID() },
+        jwtSecret,
+        { expiresIn: "24h" }
+      );
+      const isSecure = process.env.NODE_ENV === "production";
+      response.cookies.set("admin_token", adminToken, {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 86400,
+      });
     }
 
     return response;
