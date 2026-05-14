@@ -1,5 +1,4 @@
-const BASE =
-  process.env.NEXT_PUBLIC_PARTNER_API_URL ?? "https://license.agent-hub.app";
+const BASE = "/api";
 
 function getToken(): string | null {
   return typeof window !== "undefined"

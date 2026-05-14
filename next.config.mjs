@@ -27,8 +27,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob:",
-              // Explicitly allow only own API and the license backend
-              "connect-src 'self' https://license.agent-hub.app",
+              "connect-src 'self'",
               "frame-ancestors 'none'",
             ].join("; "),
           },

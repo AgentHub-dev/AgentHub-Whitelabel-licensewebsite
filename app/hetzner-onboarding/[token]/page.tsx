@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
-const API_BASE = process.env.NEXT_PUBLIC_PARTNER_API_URL ?? 'https://license.agent-hub.app';
+const API_BASE = '/api';
 
 interface OnboardingInfo {
   tenantName: string;
