@@ -736,7 +736,7 @@ function PartnersTab({
 
 export default function AdminPortal() {
   const router = useRouter();
-  const [tab, setTab] = useState<"lizenzen" | "partner" | "statistiken">("lizenzen");
+  const [tab, setTab] = useState<"billing" | "partner" | "pakete" | "lizenzen" | "statistiken">("billing");
   const [licenses, setLicenses] = useState<License[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -747,6 +747,38 @@ export default function AdminPortal() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTier, setFilterTier] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
+
+  // ── Billing state ────────────────────────────────────────────────────────────
+  const [orgs, setOrgs] = useState<Record<string, unknown>[]>([]);
+  const [billingPeriods, setBillingPeriods] = useState<Record<string, unknown>[]>([]);
+  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [billingPartners, setBillingPartners] = useState<Record<string, unknown>[]>([]);
+  const [billingLoaded, setBillingLoaded] = useState(false);
+  const [marginEdits, setMarginEdits] = useState<Record<string, string>>({});
+  const [pkgEdits, setPkgEdits] = useState<Record<string, Record<string, string>>>({});
+
+  const loadBilling = useCallback(async () => {
+    const [orgsRes, periodsRes, pkgsRes, bpRes] = await Promise.all([
+      fetch("/api/billing/organizations"),
+      fetch("/api/billing/periods"),
+      fetch("/api/billing/packages"),
+      fetch("/api/billing/partners"),
+    ]);
+    const [od, pd, pkd, bpd] = await Promise.all([orgsRes.json(), periodsRes.json(), pkgsRes.json(), bpRes.json()]);
+    setOrgs(od.organizations || []);
+    setBillingPeriods(pd.billingPeriods || []);
+    setPackages(pkd.packages || []);
+    setBillingPartners(bpd.partners || []);
+    setBillingLoaded(true);
+    const margins: Record<string, string> = {};
+    (bpd.partners || []).forEach((p: Record<string, unknown>) => { margins[p.id as string] = String(p.margin_percent ?? 30); });
+    setMarginEdits(margins);
+    const edits: Record<string, Record<string, string>> = {};
+    (pkd.packages || []).forEach((pkg: Record<string, unknown>) => {
+      edits[pkg.tier as string] = { callLimit: String(pkg.call_limit), floorPrice: String(pkg.floor_price_eur), overage: String(pkg.overage_floor_per_call ?? 0.001) };
+    });
+    setPkgEdits(edits);
+  }, []);
 
   const loadAll = useCallback(async () => {
     setLoadingData(true);
@@ -781,7 +813,8 @@ export default function AdminPortal() {
 
   useEffect(() => {
     loadAll();
-  }, [loadAll]);
+    loadBilling();
+  }, [loadAll, loadBilling]);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -840,20 +873,297 @@ export default function AdminPortal() {
         </div>
 
         {/* Tab navigation */}
-        <div className="max-w-7xl mx-auto px-6 flex gap-1 border-t border-[#f5f5f7]">
-          {(["lizenzen", "partner", "statistiken"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-[14px] font-medium border-b-2 transition-colors capitalize ${
-                tab === t ? "border-[#0071e3] text-[#0071e3]" : "border-transparent text-[#6e6e73] hover:text-[#1d1d1f]"
+        <div className="max-w-7xl mx-auto px-6 flex gap-1 border-t border-[#f5f5f7] overflow-x-auto">
+          {([
+            { key: "billing", label: `Billing (${orgs.length})` },
+            { key: "partner", label: `Partner (${billingPartners.length})` },
+            { key: "pakete", label: "Pakete" },
+            { key: "lizenzen", label: `Lizenzen (${licenses.length})` },
+            { key: "statistiken", label: "Statistiken" },
+          ] as const).map(({ key, label }) => (
+            <button key={key} onClick={() => setTab(key)}
+              className={`px-4 py-2.5 text-[14px] font-medium border-b-2 transition-colors whitespace-nowrap ${
+                tab === key ? "border-[#0071e3] text-[#0071e3]" : "border-transparent text-[#6e6e73] hover:text-[#1d1d1f]"
               }`}
             >
-              {t === "lizenzen" ? `Lizenzen (${licenses.length})` : t === "partner" ? `Partner & Kunden (${partners.length})` : "Statistiken"}
+              {label}
             </button>
           ))}
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* ── Billing Tab ── */}
+        {tab === "billing" && (
+          <div className="space-y-6">
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Aktive Orgs", v: orgs.filter((o) => o.billing_status === "ACTIVE").length, color: "text-green-600" },
+                { label: "Trial", v: orgs.filter((o) => o.billing_status === "TRIAL").length, color: "text-blue-600" },
+                { label: "Alex Gesamt", v: billingPeriods.reduce((s, b) => s + Number(b.alex_royalty ?? 0), 0).toFixed(2) + " €", color: "text-[#0071e3]" },
+                { label: "Partner Gesamt", v: billingPeriods.reduce((s, b) => s + Number(b.partner_revenue ?? 0), 0).toFixed(2) + " €", color: "text-[#1d1d1f]" },
+              ].map(({ label, v, color }) => (
+                <div key={label} className="bg-white rounded-2xl p-5 border border-[#d2d2d7]/40 shadow-sm">
+                  <p className="text-[#6e6e73] text-[11px] font-medium uppercase tracking-wider mb-1">{label}</p>
+                  <p className={`text-[28px] font-semibold ${color}`}>{v}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Organisations */}
+            <div className="bg-white rounded-3xl shadow-sm border border-[#d2d2d7]/40 overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-[#f5f5f7]">
+                <h2 className="text-[#1d1d1f] text-[18px] font-semibold">Organisationen</h2>
+              </div>
+              {!billingLoaded ? (
+                <div className="py-12 flex justify-center"><div className="w-6 h-6 border-2 border-[#0071e3] border-t-transparent rounded-full animate-spin" /></div>
+              ) : orgs.length === 0 ? (
+                <div className="py-12 text-center text-[#6e6e73]">Noch keine Organisationen.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#f9f9fb] border-b border-[#f5f5f7]">
+                      <tr>
+                        {["Organisation", "Paket", "Status", "Preis/Mo", "Calls", "Periode bis"].map((h) => (
+                          <th key={h} className="text-left px-5 py-3 text-[#6e6e73] text-[11px] font-medium uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orgs.map((o) => (
+                        <tr key={o.id as string} className="border-b border-[#f5f5f7] hover:bg-[#f9f9fb]">
+                          <td className="px-5 py-3">
+                            <div className="font-medium text-[14px]">{o.name as string}</div>
+                            <div className="text-[#6e6e73] text-[12px]">{o.email as string}</div>
+                          </td>
+                          <td className="px-5 py-3"><span className="px-2 py-0.5 bg-[#e8f0fe] text-[#1a3a5c] rounded text-[11px] font-medium">{o.package_tier as string}</span></td>
+                          <td className="px-5 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${o.billing_status === "ACTIVE" ? "bg-green-100 text-green-700" : o.billing_status === "TRIAL" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}>
+                              {o.billing_status as string}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-[14px]">{o.monthly_price ? `${o.monthly_price} €` : "–"}</td>
+                          <td className="px-5 py-3 text-[14px]">{o.current_call_count as number}</td>
+                          <td className="px-5 py-3 text-[13px] text-[#6e6e73]">
+                            {o.current_period_end ? new Date(o.current_period_end as string).toLocaleDateString("de") : "–"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Billing Periods */}
+            <div className="bg-white rounded-3xl shadow-sm border border-[#d2d2d7]/40 overflow-hidden">
+              <div className="p-6 border-b border-[#f5f5f7]">
+                <h2 className="text-[#1d1d1f] text-[18px] font-semibold">Letzte Abrechnungsperioden</h2>
+              </div>
+              {billingPeriods.length === 0 ? (
+                <div className="py-12 text-center text-[#6e6e73]">Noch keine abgerechneten Perioden.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#f9f9fb] border-b border-[#f5f5f7]">
+                      <tr>
+                        {["Periode", "Organisation", "Calls", "Paketpreis", "Alex", "Partner", "Overage"].map((h) => (
+                          <th key={h} className="text-left px-5 py-3 text-[#6e6e73] text-[11px] font-medium uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billingPeriods.slice(0, 50).map((b) => (
+                        <tr key={b.id as string} className="border-b border-[#f5f5f7]">
+                          <td className="px-5 py-3 font-mono text-[13px]">{b.period as string}</td>
+                          <td className="px-5 py-3 text-[13px]">{(b.org_name ?? b.organization_id) as string}</td>
+                          <td className="px-5 py-3 text-[13px]">{b.total_calls as number}</td>
+                          <td className="px-5 py-3 text-[13px]">{b.package_price ? `${b.package_price} €` : "–"}</td>
+                          <td className="px-5 py-3 text-[13px] text-[#0071e3] font-medium">{Number(b.alex_royalty ?? 0).toFixed(2)} €</td>
+                          <td className="px-5 py-3 text-[13px]">{Number(b.partner_revenue ?? 0).toFixed(2)} €</td>
+                          <td className="px-5 py-3 text-[13px]">{Number(b.overage_revenue ?? 0).toFixed(2)} €</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Partner Tab ── */}
+        {tab === "partner" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[#1d1d1f] text-[18px] font-semibold">Partner & Revenue-Split</h2>
+              <p className="text-[#6e6e73] text-[13px]">Standard: 30% Alex / 70% Partner</p>
+            </div>
+            {!billingLoaded ? (
+              <div className="py-12 flex justify-center"><div className="w-6 h-6 border-2 border-[#0071e3] border-t-transparent rounded-full animate-spin" /></div>
+            ) : billingPartners.length === 0 ? (
+              <div className="bg-white rounded-2xl p-12 text-center border border-[#d2d2d7]/40 text-[#6e6e73]">Noch keine Partner.</div>
+            ) : (
+              <div className="bg-white rounded-3xl shadow-sm border border-[#d2d2d7]/40 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#f9f9fb] border-b border-[#f5f5f7]">
+                      <tr>
+                        {["Partner", "E-Mail", "Alex %", "Partner %", "Stripe Connect", "Status", ""].map((h) => (
+                          <th key={h} className="text-left px-5 py-3 text-[#6e6e73] text-[11px] font-medium uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billingPartners.map((p) => {
+                        const pid = p.id as string;
+                        const margin = Number(marginEdits[pid] ?? p.margin_percent ?? 30);
+                        return (
+                          <tr key={pid} className="border-b border-[#f5f5f7] hover:bg-[#f9f9fb]">
+                            <td className="px-5 py-3">
+                              <div className="font-medium text-[14px]">{p.name as string}</div>
+                              {p.company_name ? <div className="text-[#6e6e73] text-[12px]">{p.company_name as string}</div> : null}
+                            </td>
+                            <td className="px-5 py-3 text-[13px] text-[#6e6e73]">{p.email as string}</td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number" min="0" max="100"
+                                  value={marginEdits[pid] ?? String(p.margin_percent ?? 30)}
+                                  onChange={(e) => setMarginEdits((prev) => ({ ...prev, [pid]: e.target.value }))}
+                                  className="w-16 px-2 py-1 border border-[#d4d4d8] rounded-lg text-[13px] text-center"
+                                />
+                                <span className="text-[#6e6e73] text-[13px]">%</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-[14px] font-medium">{(100 - margin).toFixed(0)} %</td>
+                            <td className="px-5 py-3">
+                              {p.stripe_account_id
+                                ? <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[11px] font-medium">Verbunden</span>
+                                : <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-[11px] font-medium">Fehlt</span>}
+                            </td>
+                            <td className="px-5 py-3">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${p.is_active ? "bg-green-100 text-green-700" : "bg-[#f5f5f7] text-[#6e6e73]"}`}>
+                                {p.is_active ? "Aktiv" : "Inaktiv"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3">
+                              <button
+                                onClick={async () => {
+                                  const res = await fetch(`/api/billing/partners/${pid}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ marginPercent: Number(marginEdits[pid] ?? 30) }),
+                                  });
+                                  if (res.ok) loadBilling();
+                                }}
+                                className="px-3 py-1.5 bg-[#0071e3] text-white rounded-lg text-[12px] hover:bg-[#0064d0]"
+                              >
+                                Speichern
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Pakete Tab ── */}
+        {tab === "pakete" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[#1d1d1f] text-[18px] font-semibold">Paket-Definitionen</h2>
+              <p className="text-[#6e6e73] text-[13px]">Floor-Preise — Partner kann höher verkaufen, nicht tiefer.</p>
+            </div>
+            {!billingLoaded ? (
+              <div className="py-12 flex justify-center"><div className="w-6 h-6 border-2 border-[#0071e3] border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <div className="bg-white rounded-3xl shadow-sm border border-[#d2d2d7]/40 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#f9f9fb] border-b border-[#f5f5f7]">
+                      <tr>
+                        {["Paket", "inkl. Calls/Mo", "Floor-Preis", "Overage (€/Call)", ""].map((h) => (
+                          <th key={h} className="text-left px-5 py-3 text-[#6e6e73] text-[11px] font-medium uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {packages.map((pkg) => {
+                        const tier = pkg.tier as string;
+                        const edits = pkgEdits[tier] ?? {};
+                        return (
+                          <tr key={tier} className="border-b border-[#f5f5f7] hover:bg-[#f9f9fb]">
+                            <td className="px-5 py-3">
+                              <span className="px-2 py-0.5 bg-[#e8f0fe] text-[#1a3a5c] rounded text-[12px] font-semibold">{tier}</span>
+                              <div className="text-[#6e6e73] text-[12px] mt-0.5">{pkg.name as string}</div>
+                            </td>
+                            <td className="px-5 py-3">
+                              <input
+                                type="number"
+                                value={edits.callLimit ?? String(pkg.call_limit)}
+                                onChange={(e) => setPkgEdits((p) => ({ ...p, [tier]: { ...p[tier], callLimit: e.target.value } }))}
+                                className="w-28 px-2 py-1 border border-[#d4d4d8] rounded-lg text-[13px]"
+                              />
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number" step="0.01"
+                                  value={edits.floorPrice ?? String(pkg.floor_price_eur)}
+                                  onChange={(e) => setPkgEdits((p) => ({ ...p, [tier]: { ...p[tier], floorPrice: e.target.value } }))}
+                                  className="w-24 px-2 py-1 border border-[#d4d4d8] rounded-lg text-[13px]"
+                                />
+                                <span className="text-[#6e6e73] text-[13px]">€</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number" step="0.0001"
+                                  value={edits.overage ?? String(pkg.overage_floor_per_call ?? 0.001)}
+                                  onChange={(e) => setPkgEdits((p) => ({ ...p, [tier]: { ...p[tier], overage: e.target.value } }))}
+                                  className="w-24 px-2 py-1 border border-[#d4d4d8] rounded-lg text-[13px]"
+                                />
+                                <span className="text-[#6e6e73] text-[13px]">€</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3">
+                              <button
+                                onClick={async () => {
+                                  await fetch(`/api/billing/packages/${tier}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      callLimit: Number(pkgEdits[tier]?.callLimit ?? pkg.call_limit),
+                                      floorPriceEur: Number(pkgEdits[tier]?.floorPrice ?? pkg.floor_price_eur),
+                                      overageFloorPerCall: Number(pkgEdits[tier]?.overage ?? pkg.overage_floor_per_call),
+                                    }),
+                                  });
+                                  loadBilling();
+                                }}
+                                className="px-3 py-1.5 bg-[#0071e3] text-white rounded-lg text-[12px] hover:bg-[#0064d0]"
+                              >
+                                Speichern
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Lizenzen Tab ── */}
         {tab === "lizenzen" && (
           <>
@@ -938,15 +1248,6 @@ export default function AdminPortal() {
           </>
         )}
 
-        {/* ── Partner & Kunden Tab ── */}
-        {tab === "partner" && (
-          <PartnersTab
-            partners={partners}
-            customers={customers}
-            loadingData={loadingData}
-            onRefresh={() => loadAll()}
-          />
-        )}
 
         {/* ── Statistiken Tab ── */}
         {tab === "statistiken" && (
