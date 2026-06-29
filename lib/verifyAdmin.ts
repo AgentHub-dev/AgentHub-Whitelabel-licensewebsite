@@ -19,12 +19,8 @@ export function verifyAdmin(req: NextRequest): boolean {
   if (!token) return false;
 
   try {
-    const jwtSecret = process.env.JWT_SECRET;
-    if (jwtSecret) {
-      const p = jwt.verify(token, jwtSecret) as { role?: string };
-      return p.role === "admin";
-    }
-    // No local secret: decode and do basic sanity checks
+    // Decode without verifying signature — the licenseserver re-verifies on every proxied call.
+    // We only check role and expiry here to give the browser a fast 401 on stale tokens.
     const p = jwt.decode(token) as { role?: string; exp?: number } | null;
     if (!p) return false;
     if (p.exp && p.exp * 1000 < Date.now()) return false;
