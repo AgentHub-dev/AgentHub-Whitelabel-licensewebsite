@@ -2,7 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 
 const LS = () => process.env.LICENSE_SERVER_URL || "http://localhost:3100";
 
+// Simple in-memory rate limiter — resets on cold start (acceptable for Vercel edge)
+// For production-grade limiting use Upstash Redis KV with @upstash/ratelimit.
+const attempts = new Map<string, { count: number; resetAt: number }>();
+const WINDOW_MS = 15 * 60 * 1000; // 15 min
+const MAX_ATTEMPTS = 10;
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = attempts.get(ip);
+  if (!entry || entry.resetAt < now) {
+    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= MAX_ATTEMPTS;
+}
+
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Zu viele Login-Versuche. Bitte 15 Minuten warten." },
+      { status: 429 }
+    );
+  }
+
   const { secret } = await req.json();
   if (!secret) {
     return NextResponse.json({ error: "Schlüssel erforderlich." }, { status: 400 });

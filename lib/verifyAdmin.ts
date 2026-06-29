@@ -21,9 +21,17 @@ export function verifyAdmin(req: NextRequest): boolean {
   try {
     // Decode without verifying signature — the licenseserver re-verifies on every proxied call.
     // We only check role and expiry here to give the browser a fast 401 on stale tokens.
+    const parts = token.split(".");
+    if (parts.length !== 3) return false; // reject alg:none (only 2 parts)
+
+    // Explicitly reject alg:none tokens
+    const header = JSON.parse(Buffer.from(parts[0], "base64url").toString()) as { alg?: string };
+    if (!header.alg || header.alg.toLowerCase() === "none") return false;
+
     const p = jwt.decode(token) as { role?: string; exp?: number } | null;
     if (!p) return false;
-    if (p.exp && p.exp * 1000 < Date.now()) return false;
+    if (!p.exp) return false; // require expiry — tokens without exp are rejected
+    if (p.exp * 1000 < Date.now()) return false;
     return p.role === "admin";
   } catch {
     return false;
