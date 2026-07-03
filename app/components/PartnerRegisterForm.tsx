@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 const benefits = [
+  "Für Coaches, KI/IT-Berater, Systemhäuser & Server-Anbieter",
   "Eigene Kundenstruktur verwalten",
   "Automatischer Revenue-Split via Stripe",
   "Team-Mitglieder anlegen",
@@ -87,8 +88,10 @@ export default function PartnerRegisterForm() {
               KI-Business in Minuten.
             </h3>
             <p className="text-[#6e6e73] text-[17px] leading-relaxed mb-10">
-              Als AgentHub-Partner erhältst du Zugang zum vollständigen
-              Whitelabel-Stack — inklusive eigenem Dashboard, Kundenmanagement
+              Ob Coaching, IT-Beratung, Systemhaus oder eigene Server-Infrastruktur —
+              als AgentHub-Partner erhältst du Zugang zum vollständigen
+              Whitelabel-Stack, den du unter deinem Brand an deine Kunden
+              weiterverkaufst. Inklusive eigenem Dashboard, Kundenmanagement
               und automatisierter Abrechnung.
             </p>
 

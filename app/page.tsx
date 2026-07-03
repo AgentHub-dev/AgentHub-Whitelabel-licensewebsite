@@ -35,11 +35,11 @@ function Nav() {
         {/* Desktop */}
         <div className="hidden md:flex items-center gap-8">
           {[
+            ["Partner werden", "#partner"],
             ["Features", "#features"],
             ["So funktioniert es", "#how"],
             ["Preise", "#preise"],
             ["FAQ", "#faq"],
-            ["Partner werden", "#partner"],
           ].map(([label, href]) => (
             <a
               key={label}
@@ -55,8 +55,8 @@ function Nav() {
           <Link href="/portal" className="text-[#0071e3] text-[14px] font-medium hover:underline">
             Mein Konto
           </Link>
-          <a href="#preise" className="btn-primary text-[14px] !py-2 !px-5">
-            Lizenz kaufen
+          <a href="#partner" className="btn-primary text-[14px] !py-2 !px-5">
+            Partner werden
           </a>
         </div>
 
@@ -75,18 +75,18 @@ function Nav() {
       {menuOpen && (
         <div className="md:hidden glass-nav border-t border-[#d2d2d7]/30 px-6 py-4 flex flex-col gap-4">
           {[
+            ["Partner werden", "#partner"],
             ["Features", "#features"],
             ["So funktioniert es", "#how"],
             ["Preise", "#preise"],
             ["FAQ", "#faq"],
-            ["Partner werden", "#partner"],
           ].map(([label, href]) => (
             <a key={label} href={href} onClick={() => setMenuOpen(false)} className="text-[#1d1d1f] text-[16px]">
               {label}
             </a>
           ))}
           <Link href="/portal" className="text-[#0071e3] text-[16px] font-medium">Mein Konto</Link>
-          <a href="#preise" className="btn-primary text-center" onClick={() => setMenuOpen(false)}>Lizenz kaufen</a>
+          <a href="#partner" className="btn-primary text-center" onClick={() => setMenuOpen(false)}>Partner werden</a>
         </div>
       )}
     </nav>
@@ -108,31 +108,32 @@ function Hero() {
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#f5f5f7] rounded-full text-[13px] text-[#6e6e73] mb-8 border border-[#d2d2d7]/40">
           <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          Whitelabel Edition 2026
+          Partnerprogramm 2026
         </div>
 
         <h1 className="text-[52px] md:text-[80px] lg:text-[96px] font-semibold tracking-tight leading-[1.05] text-[#1d1d1f] mb-6">
-          Die KI-Plattform
+          Verkaufe deine eigene
           <br />
-          <span className="gradient-text-blue">für deine Agentur.</span>
+          <span className="gradient-text-blue">KI-Middleware.</span>
         </h1>
 
         <p className="text-[#6e6e73] text-[19px] md:text-[23px] leading-relaxed max-w-2xl mx-auto mb-10">
-          AgentHub-OS — Das vollständige KI-System, das du deinen Kunden unter
-          eigenem Brand anbietest. Fertig deployed in 5 Minuten.
+          AgentHub-OS ist das White-Label-KI-System, das Coaches, KI/IT-Berater,
+          Systemhäuser und Server-Infrastrukturanbieter unter eigenem Brand an
+          ihre Kunden weiterverkaufen — mit automatischem Revenue-Split.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a href="#preise" className="btn-primary text-[17px] !px-8 !py-4">
-            Lizenz kaufen →
+          <a href="#partner" className="btn-primary text-[17px] !px-8 !py-4">
+            Partner werden →
           </a>
-          <a href="#features" className="btn-ghost text-[17px] !px-8 !py-4">
-            Mehr erfahren
+          <a href="#preise" className="btn-ghost text-[17px] !px-8 !py-4">
+            Direkt Lizenz kaufen
           </a>
         </div>
 
         <p className="mt-6 text-[#6e6e73] text-[14px]">
-          Ab 149 €/Monat · Keine Einrichtungsgebühr · Kündigung jederzeit
+          Kostenlose Partner-Registrierung · Du bestimmst deine Preise · Kündigung jederzeit
         </p>
 
         {/* Mock UI preview */}
@@ -665,11 +666,11 @@ export default function LandingPage() {
     <>
       <Nav />
       <Hero />
+      <PartnerRegisterForm />
       <Features />
       <HowItWorks />
       <StatsBanner />
       <Pricing />
-      <PartnerRegisterForm />
       <FAQ />
       <CTABanner />
       <Footer />

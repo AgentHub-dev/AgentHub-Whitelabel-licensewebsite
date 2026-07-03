@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgentHub-OS — Die KI-Plattform für deine Agentur",
+  title: "AgentHub-OS — Werde White-Label KI-Partner",
   description:
-    "Das vollständige White-Label KI-System für Agenturen. Fertig deployed in 5 Minuten. Unter deinem Brand.",
+    "Biete AgentHub-OS als eigene KI-Middleware an — für Coaches, KI/IT-Berater, Systemhäuser und Server-Infrastrukturanbieter. Dein Brand, deine Preise, automatischer Revenue-Split.",
   openGraph: {
-    title: "AgentHub-OS — Die KI-Plattform für deine Agentur",
+    title: "AgentHub-OS — Werde White-Label KI-Partner",
     description:
-      "White-Label KI für Agenturen. Dein Brand. Deine Preise. Deine Kunden.",
+      "White-Label KI-Plattform für Coaches, IT-Berater, Systemhäuser und Server-Anbieter. Dein Brand. Deine Preise. Deine Kunden.",
     type: "website",
   },
 };
