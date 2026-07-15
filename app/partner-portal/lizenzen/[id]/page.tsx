@@ -308,14 +308,13 @@ export default function CustomerDetailPage() {
               <div>
                 <h2 className="text-[#1d1d1f] text-[17px] font-semibold">Seat-Lizenzen</h2>
                 <p className="text-[#6e6e73] text-[13px] mt-0.5">{revenue?.activeSeatCount ?? 0} aktiv · {revenue?.seatCount ?? 0} gesamt</p>
+                {/* Coach-Ready-Plan Phase 6: Sitzplatzbasierte Lizenzen sind
+                    Legacy -- bestehende Seats bleiben sicht-/verwaltbar,
+                    aber es koennen keine neuen mehr angelegt werden. Neue
+                    Kunden laufen ueber die nutzungsbasierte Unternehmens-
+                    lizenz (Organizations), nicht mehr ueber Seats. */}
+                <p className="text-[#a1a1a6] text-[11px] mt-1">Legacy-Modell — neue Kunden nutzen die nutzungsbasierte Abrechnung.</p>
               </div>
-              {isOwner && (
-                <button onClick={() => { setShowAddSeats(true); setSeatError(""); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium bg-[#1a3a5c] text-white rounded-lg hover:bg-[#1a3a5c]/90 transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  Seats hinzufügen
-                </button>
-              )}
             </div>
 
             {/* Add seats form */}
