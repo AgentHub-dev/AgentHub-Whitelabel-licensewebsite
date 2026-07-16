@@ -159,4 +159,32 @@ export const partnerApi = {
       headers: authHeaders(),
     });
   },
+
+  // Coach-Ready-Plan Phase 8: eigene nutzungsbasierte Organization (nur fuer
+  // ueber /coach/register angelegte Partner vorhanden — 404 bei Systemhaus-
+  // Partnern aus dem alten Sitzplatz-Modell ist dort korrekt und erwartet).
+  async getOrganization() {
+    const res = await fetch(`${BASE}/partner/organization`, { headers: authHeaders() });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Organization konnte nicht geladen werden.");
+    return res.json();
+  },
+  async updateOrganization(data: { monthlyPrice: number }) {
+    const res = await fetch(`${BASE}/partner/organization`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Fehler"); }
+    return res.json();
+  },
+  async organizationCheckout(data: { successUrl: string; cancelUrl: string }) {
+    const res = await fetch(`${BASE}/partner/organization/checkout`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Fehler"); }
+    return res.json();
+  },
 };

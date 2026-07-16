@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { partnerApi } from "@/lib/partnerApi";
 
 interface PartnerData {
+  id?: string;
   name?: string;
   companyName?: string;
   plan?: string;
@@ -12,10 +13,21 @@ interface PartnerData {
   role?: string;
 }
 
+interface OrganizationData {
+  id: string;
+  package_tier: string;
+  billing_status: string;
+  monthly_price: string | number | null;
+  floor_price_eur: string | number | null;
+}
+
 export default function DashboardPage() {
   const [partner, setPartner] = useState<PartnerData | null>(null);
+  const [organization, setOrganization] = useState<OrganizationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     partnerApi
@@ -23,7 +35,39 @@ export default function DashboardPage() {
       .then((data: PartnerData) => setPartner(data))
       .catch(() => setError("Daten konnten nicht geladen werden."))
       .finally(() => setLoading(false));
+    // Coach-Ready-Plan Phase 8: nur ueber /coach/register angelegte Partner
+    // haben eine Organization -- 404 (=null) ist fuer Systemhaus-Partner
+    // aus dem alten Modell erwartet und wird still ignoriert.
+    partnerApi.getOrganization().then(setOrganization).catch(() => {});
   }, []);
+
+  const referralLink =
+    typeof window !== "undefined" && partner?.id
+      ? `${window.location.origin}/coach/register?ref=${partner.id}`
+      : "";
+
+  const copyReferralLink = () => {
+    if (!referralLink) return;
+    navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const startCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      const origin = window.location.origin;
+      const data = await partnerApi.organizationCheckout({
+        successUrl: `${origin}/partner-portal/dashboard?checkout=success`,
+        cancelUrl: `${origin}/partner-portal/dashboard?checkout=cancelled`,
+      });
+      if (data.url) window.location.href = data.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Checkout fehlgeschlagen.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   const formatDate = (iso?: string) => {
     if (!iso) return "—";
@@ -211,6 +255,54 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Referral link — jeder Partner kann Coaches werben (Coach-Ready-Plan Phase 8) */}
+      {partner?.id && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mt-6">
+          <h2 className="text-[#1d1d1f] text-[17px] font-semibold mb-2">
+            Dein Empfehlungslink
+          </h2>
+          <p className="text-[#6e6e73] text-[14px] mb-4">
+            Lade Coaches über diesen Link ein. Für jede Anmeldung erhältst du 24 Monate lang eine Provision.
+          </p>
+          <div className="flex items-center gap-3">
+            <code className="flex-1 bg-[#f5f5f7] rounded-xl px-4 py-3 text-[13px] text-[#1d1d1f] overflow-x-auto whitespace-nowrap">
+              {referralLink}
+            </code>
+            <button onClick={copyReferralLink} className="btn-primary !py-3 !px-5 text-[14px] whitespace-nowrap">
+              {copied ? "Kopiert ✓" : "Kopieren"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Eigene Organization — nur fuer Coaches vorhanden (Phase 8) */}
+      {organization && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mt-6">
+          <h2 className="text-[#1d1d1f] text-[17px] font-semibold mb-4">
+            Deine Unternehmenslizenz
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-5">
+            <div>
+              <div className="text-[#6e6e73] text-[12px] font-medium uppercase tracking-wider mb-1">Paket</div>
+              <div className="text-[#1d1d1f] text-[15px]">{organization.package_tier}</div>
+            </div>
+            <div>
+              <div className="text-[#6e6e73] text-[12px] font-medium uppercase tracking-wider mb-1">Status</div>
+              <div className="text-[#1d1d1f] text-[15px] capitalize">{organization.billing_status}</div>
+            </div>
+            <div>
+              <div className="text-[#6e6e73] text-[12px] font-medium uppercase tracking-wider mb-1">Monatspreis</div>
+              <div className="text-[#1d1d1f] text-[15px]">{organization.monthly_price ?? "—"} €</div>
+            </div>
+          </div>
+          {organization.billing_status === "TRIAL" && (
+            <button onClick={startCheckout} disabled={checkoutLoading} className="btn-primary !py-3 !px-5 text-[14px] disabled:opacity-50">
+              {checkoutLoading ? "Wird geladen..." : "Zahlung einrichten →"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
